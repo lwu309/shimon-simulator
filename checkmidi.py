@@ -20,6 +20,9 @@ def isnotevalid(time, note, checknotelist):
             return True, checknote
     return False, None
 
+def roundposition(position):
+    pass
+
 def readnotes(filename):
     midifile = mido.MidiFile(filename)
     print(midifile.ticks_per_beat)
@@ -41,7 +44,7 @@ def readnotes(filename):
                 if message.note >= 48 and message.note <= 95:
                     currentchord.append((currentchordtime, message.note))
                 else:
-                    print(f'Midi note {message.note} at time {int(round(time * 1000, 4))} will not be played by Shimon', sys.stderr)
+                    print(f'Midi note {message.note} at time {int(round(time * 1000, 4))} will not be played by Shimon', file=sys.stderr)
             # Otherwise we are on the first note of the chord
             else:
                 # Flush non-empty chord first
@@ -62,7 +65,7 @@ def readnotes(filename):
                     currentchord = [(int(round(time * 1000, 4)), message.note)]
                     currentchordtime = int(round(time * 1000, 4))
                 else:
-                    print(f'Midi note {message.note} at time {int(round(time * 1000, 4))} will not be played by Shimon', sys.stderr)
+                    print(f'Midi note {message.note} at time {int(round(time * 1000, 4))} will not be played by Shimon', file=sys.stderr)
     # Flush non-empty chord
     if len(currentchord) != 0:
         # Construct a range of timestamps
