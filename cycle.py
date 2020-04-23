@@ -1,4 +1,3 @@
-import argparse
 import math
 import sys
 
@@ -10,46 +9,15 @@ import shimon.striker
 import checkmidi
 
 @with_goto
-def checkinstructionlist(instructionlist, startpositions=[shimon.arm.positiontable[0], shimon.arm.positiontable[2], shimon.arm.positiontable[-4], shimon.arm.positiontable[-2]], strikercommands=None, midifilename=None, logfilename='info.log'):
+def runcycle(arms, strikers, strikercommands, startcycle, endcycle, numberofnotes, notelist, offset, midifilename, log):
     def loginfo(logmessage):
         if __name__ == '__main__':
             print(logmessage, file=sys.stderr)
         print(logmessage, file=log)
-        
-    # Open a log output
-    log = open(logfilename, mode='w')
 
-    # Arm initialization
-    instructionlist = sorted(instructionlist, key=lambda x: x[0])
-    # mintime = instructionlist[0][0]
-    # for i in range(len(instructionlist)):
-    #     instructionlist[i][0] -= mintime
-    totaltime = instructionlist[-1][0] + 2000
-    arms = [shimon.arm.Arm(1, startpositions[0]), shimon.arm.Arm(2, startpositions[1]), shimon.arm.Arm(3, startpositions[2]), shimon.arm.Arm(4, startpositions[3])]
-    for instruction in instructionlist:
-        arms[instruction[1] - 1].instructionqueue.append(instruction)
+    hitnotes = []
 
-    # Striker initialization
-    if strikercommands is not None and len(strikercommands) > 0:
-        strikercommands = sorted(strikercommands, key=lambda x: x[0])
-        strikers = []
-        for i in range(8):
-            strikers.append(shimon.striker.Striker(i + 1))
-        strikermaxtime = int(strikercommands[-1][0]) + 2000
-        if totaltime < strikermaxtime:
-            totaltime = strikermaxtime
-        for strikercommand in strikercommands:
-            for i in range(8):
-                if strikercommand[i + 1] == 1:
-                    strikers[i].instructionqueue.append(strikercommand[0])
-        if midifilename is not None:
-            numberofnotes, notelist = checkmidi.readnotes(midifilename)
-            offset = checkmidi.findstaticoffset(strikercommands[0][0] + 85, notelist)
-            print('Static offset:', offset, file=sys.stderr)
-
-    for time in range(totaltime):
-        # log.write(f'Time {time}:\n');
-
+    for time in range(startcycle, endcycle):
         # Arms
         for arm in arms:
             label .fsmstart
@@ -255,19 +223,19 @@ def checkinstructionlist(instructionlist, startpositions=[shimon.arm.positiontab
         # log.write('\n')
         if arms[1].position - arms[0].position < 15.0:
             loginfo(f'Arm 1 collides with arm 2 at {time} ms')
-            return
+            return False, []
         elif arms[2].position - arms[1].position < 55.5:
             loginfo(f'Arm 2 collides with arm 3 at {time} ms')
-            return
+            return False, []
         elif arms[3].position - arms[2].position < 15.0:
             loginfo(f'Arm 3 collides with arm 4 at {time} ms')
-            return
+            return False, []
         elif arms[0].position < shimon.arm.positiontable[0]:
             loginfo(f'Arm 1 moves beyond the rail at {time} ms')
-            return
+            return False, []
         elif arms[3].position > shimon.arm.positiontable[-1]:
             loginfo(f'Arm 4 moves beyond the rail at {time} ms')
-            return
+            return False, []
 
         # Strikers
         if strikercommands is not None and len(strikercommands) > 0:
@@ -294,6 +262,7 @@ def checkinstructionlist(instructionlist, startpositions=[shimon.arm.positiontab
                                     striker.deadcounter = 1
                             if not striker.isdead:
                                 loginfo(f'Striker {striker.number} hits the keyboard at time {time} on note {checkmidi.getnote(arms[striker.armnumber - 1].position)}')
+                                hitnotes.append(checkmidi.getnote(arms[striker.armnumber - 1].position))
                         striker.instructionqueue.pop(0)
                         # Check note
                         if midifilename is not None:
@@ -313,8 +282,7 @@ def checkinstructionlist(instructionlist, startpositions=[shimon.arm.positiontab
                                     notelist[0].remove(matchednote)
                                     if len(notelist[0]) == 0:
                                         notelist.pop(0)
-    loginfo('Simulation successful')
-    log.close()
+    return True, hitnotes
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -338,7 +306,7 @@ if __name__ == '__main__':
         if args.arm1position is not None and args.arm2position is not None and args.arm3position is not None and args.arm4position is not None:
             startpositions = [args.arm1position, args.arm2position, args.arm3position, args.arm4position]
         else:
-            startpositions = [shimon.arm.positiontable[0], shimon.arm.positiontable[2], shimon.arm.positiontable[-4], shimon.arm.positiontable[-2]]
+            startpositions = [shimon.arm.positiontable[0], shimon.arm.positiontable[2], shimon.arm.positiontable[-3], shimon.arm.positiontable[-1]]
         if args.strikerfile is None:
             checkinstructionlist(armlist, startpositions=startpositions)
         else:

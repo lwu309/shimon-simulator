@@ -10,18 +10,30 @@ for i in range(48):
 def findstaticoffset(time, notelist):
     return time - notelist[0][0][0][0]
 
+def getnote(position):
+    if position in positiontable:
+        return midimapping[position]
+    else:
+        for i in range(len(positiontable) - 1):
+            if position > positiontable[i] and position < positiontable[i + 1]:
+                if position - positiontable[i] < positiontable[i + 1] - position:
+                    return midimapping[positiontable[i]]
+                else:
+                    return midimapping[positiontable[i + 1]]
+        return None
+
+def isinoctave(note1, note2):
+    return note1 > note2 - 12 and note1 < note2 + 12
+
 def isnotevalid(time, note, checknotelist):
     if len(checknotelist) == 0:
         return False, None
-    if time not in checknotelist[0][0]:
+    if time not in checknotelist[0][0] and time - 1 not in checknotelist[0][0] and time + 1 not in checknotelist[0][0]:
         return False, None
     for checknote in checknotelist:
-        if time in checknote[0] and note == checknote[1]:
+        if (time in checknote[0] or time - 1 in checknote[0] or time + 1 in checknote[0]) and isinoctave(note, checknote[1]):
             return True, checknote
     return False, None
-
-def roundposition(position):
-    pass
 
 def readnotes(filename):
     midifile = mido.MidiFile(filename)
@@ -60,6 +72,7 @@ def readnotes(filename):
                     notesfile.write(f'{currentchord}\n')
                     notes.append(currentchord)
                     n += len(currentchord)
+                    currentchord = []
                 # Start a new chord
                 if message.note >= 48 and message.note <= 95:
                     currentchord = [(int(round(time * 1000, 4)), message.note)]
