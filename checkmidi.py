@@ -1,43 +1,64 @@
 import mido
 import sys
 
-positiontable = [0, 10, 44, 73, 102, 157, 184, 212, 240, 267, 294, 324, 377, 406, 434, 463, 490, 546, 574, 599, 624, 651, 673, 698, 749, 771, 798, 820, 846, 894, 919, 945, 969, 993, 1018, 1044, 1092, 1118, 1142, 1167, 1193, 1240, 1266, 1291, 1315, 1339, 1364, 1385, 1385]
+import shimon.arm
 
 midimapping = {}
 for i in range(48):
-    midimapping[positiontable[i]] = i + 48
+    midimapping[shimon.arm.positiontable[i]] = i + 48
 
 def findstaticoffset(time, notelist):
     return time - notelist[0][0][0][0]
 
 def getnote(position):
-    if position in positiontable:
+    if position in shimon.arm.positiontable:
         return midimapping[position]
     else:
-        for i in range(len(positiontable) - 1):
-            if position > positiontable[i] and position < positiontable[i + 1]:
-                if position - positiontable[i] < positiontable[i + 1] - position:
-                    return midimapping[positiontable[i]]
+        for i in range(len(shimon.arm.positiontable) - 1):
+            if position > shimon.arm.positiontable[i] and position < shimon.arm.positiontable[i + 1]:
+                if position - shimon.arm.positiontable[i] < shimon.arm.positiontable[i + 1] - position:
+                    return midimapping[shimon.arm.positiontable[i]]
                 else:
-                    return midimapping[positiontable[i + 1]]
+                    return midimapping[shimon.arm.positiontable[i + 1]]
         return None
 
 def isinoctave(note1, note2):
     return note1 > note2 - 12 and note1 < note2 + 12
 
-def isnotevalid(time, note, checknotelist):
-    if len(checknotelist) == 0:
-        return False, None
-    if time not in checknotelist[0][0] and time - 1 not in checknotelist[0][0] and time + 1 not in checknotelist[0][0]:
-        return False, None
-    for checknote in checknotelist:
-        if (time in checknote[0] or time - 1 in checknote[0] or time + 1 in checknote[0]) and isinoctave(note, checknote[1]):
-            return True, checknote
-    return False, None
+def timingwindow(time, errorallowed):
+    window = {time}
+    for i in range(1, errorallowed + 1):
+        window.add(time + i)
+        window.add(time - i)
+    return window
 
-def readnotes(filename):
+def isnotevalid(time, note, checknotelist, errorallowed):
+    reason = []
+    if len(checknotelist) == 0:
+        return False, reason
+    if time not in checknotelist[0][0] and time - 1 not in checknotelist[0][0] and time + 1 not in checknotelist[0][0]:
+        return False, reason
+    for checknote in checknotelist:
+        intimingwindow = False
+        for t in timingwindow(time, errorallowed):
+            if t in checknote[0]:
+                intimingwindow = True
+                break
+        if intimingwindow and isinoctave(note, checknote[1]):
+            return True, checknote
+        elif intimingwindow and abs(note - checknote[1]) % 12 == 0:
+            reason.append(checknote)
+    return False, reason
+
+def readnotes(filename, info, warning):
+    def logwarning(logmessage):
+        logmessage = 'Warning: ' + logmessage
+        print(logmessage, file=sys.stderr)
+        print(logmessage, file=info)
+        print(logmessage, file=warning)
+
     midifile = mido.MidiFile(filename)
-    print(midifile.ticks_per_beat)
+    print('Ticks per beat:', midifile.ticks_per_beat)
     n = 0
     f = open('messages.txt', 'w')
     notesfile = open('notes.txt', 'w')
@@ -56,7 +77,7 @@ def readnotes(filename):
                 if message.note >= 48 and message.note <= 95:
                     currentchord.append((currentchordtime, message.note))
                 else:
-                    print(f'Midi note {message.note} at time {int(round(time * 1000, 4))} will not be played by Shimon', file=sys.stderr)
+                    logwarning(f'Midi note {message.note} at time {int(round(time * 1000, 4))} is out of range and will not be played by Shimon')
             # Otherwise we are on the first note of the chord
             else:
                 # Flush non-empty chord first
@@ -78,7 +99,7 @@ def readnotes(filename):
                     currentchord = [(int(round(time * 1000, 4)), message.note)]
                     currentchordtime = int(round(time * 1000, 4))
                 else:
-                    print(f'Midi note {message.note} at time {int(round(time * 1000, 4))} will not be played by Shimon', file=sys.stderr)
+                    logwarning(f'Midi note {message.note} at time {int(round(time * 1000, 4))} is out of range and will not be played by Shimon')
     # Flush non-empty chord
     if len(currentchord) != 0:
         # Construct a range of timestamps

@@ -2,39 +2,40 @@ import argparse
 import copy
 import sys
 
-import gui.window
+import gui
 import shimon.arm
 import shimon.striker
 import checkmidi
 
-def initialize(instructionlist, startpositions=[shimon.arm.positiontable[0], shimon.arm.positiontable[2], shimon.arm.positiontable[-4], shimon.arm.positiontable[-2]], strikercommands=None, midifilename=None, logfilename='guiinfo.log'):
-    gui.window.log = open(logfilename, mode='w')
+def initialize(instructionlist, startpositions=[shimon.arm.positiontable[0], shimon.arm.positiontable[2], shimon.arm.positiontable[-4], shimon.arm.positiontable[-2]], strikercommands=None, midifilename=None, infofilename='guiinfo.log', warningfilename='guiwarning.log'):
+    gui.info = open(infofilename, mode='w')
+    gui.warning = open(warningfilename, mode='w')
 
     # Arm initialization
     instructionlist = sorted(instructionlist, key=lambda x: x[0])
-    gui.window.totaltime = instructionlist[-1][0] + 2000
-    gui.window.arms = [shimon.arm.Arm(1, startpositions[0]), shimon.arm.Arm(2, startpositions[1]), shimon.arm.Arm(3, startpositions[2]), shimon.arm.Arm(4, startpositions[3])]
+    gui.totaltime = instructionlist[-1][0] + 2000
+    gui.arms = [shimon.arm.Arm(1, startpositions[0]), shimon.arm.Arm(2, startpositions[1]), shimon.arm.Arm(3, startpositions[2]), shimon.arm.Arm(4, startpositions[3])]
     for instruction in instructionlist:
-        gui.window.arms[instruction[1] - 1].instructionqueue.append(instruction)
+        gui.arms[instruction[1] - 1].instructionqueue.append(instruction)
 
     # Striker initialization
+    for i in range(8):
+        gui.strikers.append(shimon.striker.Striker(i + 1))
     if strikercommands is not None and len(strikercommands) > 0:
         strikercommands = sorted(strikercommands, key=lambda x: x[0])
-        gui.window.strikercommands = strikercommands
-        for i in range(8):
-            gui.window.strikers.append(shimon.striker.Striker(i + 1))
+        gui.strikercommands = strikercommands
         strikermaxtime = int(strikercommands[-1][0]) + 2000
-        if gui.window.totaltime < strikermaxtime:
-            gui.window.totaltime = strikermaxtime
+        if gui.totaltime < strikermaxtime:
+            gui.totaltime = strikermaxtime
         for strikercommand in strikercommands:
             for i in range(8):
                 if strikercommand[i + 1] == 1:
-                    gui.window.strikers[i].instructionqueue.append(strikercommand[0])
+                    gui.strikers[i].instructionqueue.append(strikercommand[0])
         if midifilename is not None:
-            gui.window.numberofnotes, gui.window.notelist = checkmidi.readnotes(midifilename)
-            gui.window.offset = checkmidi.findstaticoffset(strikercommands[0][0] + 85, gui.window.notelist)
-            print('Static offset:', gui.window.offset, file=sys.stderr)
-            gui.window.midifilename = midifilename
+            gui.numberofnotes, gui.notelist = checkmidi.readnotes(midifilename, gui.info, gui.warning)
+            gui.offset = checkmidi.findstaticoffset(strikercommands[0][0] + 85, gui.notelist)
+            print('Static offset:', gui.offset, file=sys.stderr)
+            gui.midifilename = midifilename
 
 if __name__ == '__main__':
     # Parse arguments
@@ -71,4 +72,4 @@ if __name__ == '__main__':
                     strikerlist.append([int(tokens[12]), int(tokens[8]), int(tokens[7]), int(tokens[6]), int(tokens[5]), int(tokens[4]), int(tokens[3]), int(tokens[2]), int(tokens[1])])
             strikerfile.close()
             initialize(armlist, startpositions=startpositions, strikercommands=strikerlist, midifilename=args.midifile)
-    gui.window.main()
+    gui.main()

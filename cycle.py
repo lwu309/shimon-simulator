@@ -7,13 +7,27 @@ from thirdparty.goto import with_goto
 import shimon.arm
 import shimon.striker
 import checkmidi
+import parameters
+
+strikerhits = []
 
 @with_goto
-def runcycle(arms, strikers, strikercommands, startcycle, endcycle, numberofnotes, notelist, offset, midifilename, log):
+def runcycle(arms, strikers, strikercommands, startcycle, endcycle, numberofnotes, notelist, offset, midifilename, info, warning):
     def loginfo(logmessage):
-        if __name__ == '__main__':
-            print(logmessage, file=sys.stderr)
-        print(logmessage, file=log)
+        print(logmessage, file=sys.stderr)
+        print(logmessage, file=info)
+
+    def logwarning(logmessage):
+        logmessage = 'Warning: ' + logmessage
+        print(logmessage, file=sys.stderr)
+        print(logmessage, file=info)
+        print(logmessage, file=warning)
+
+    def logerror(logmessage):
+        logmessage = 'Error: ' + logmessage
+        print(logmessage, file=sys.stderr)
+        print(logmessage, file=info)
+        print(logmessage, file=warning)
 
     hitnotes = []
 
@@ -29,16 +43,16 @@ def runcycle(arms, strikers, strikercommands, startcycle, endcycle, numberofnote
                     if time == arm.currentinstructiontime():
                         # Drop the message if the target position is invalid
                         if arm.currentinstructiontargetposition() < shimon.arm.positiontable[0] or arm.currentinstructiontargetposition() > shimon.arm.positiontable[-1]:
-                            print(f'Warning: Arm {arm.number} receives message with invalid target position {arm.currentinstructiontargetposition()}, dropping instruction', file=sys.stderr)
+                            logwarning(f'Arm {arm.number} receives message with invalid target position {arm.currentinstructiontargetposition()}, dropping instruction')
                             arm.instructionqueue.pop(0)
                             goto .fsmstart
                         # Keep only the latest message received at the same time
                         while len(arm.instructionqueue) > 1 and arm.nextinstructiontime() == arm.currentinstructiontime():
-                            print(f'Warning: Arm {arm.number} receives multiple instructions at time {time}, dropping old instruction\n    Time: {time}\n    Target position: {arm.currentinstructiontargetposition()}\n    Position: {arm.position}', file=sys.stderr)
+                            logwarning(f'Arm {arm.number} receives multiple instructions at time {time - offset}, dropping old instruction\n    Time: {time - offset}\n    Target position: {arm.currentinstructiontargetposition()}\n    Position: {arm.position}')
                             arm.instructionqueue.pop(0)
                         # Shift to Starting state
                         arm.state = shimon.arm.ArmState.STARTING
-                        print(f'Arm {arm.number} shifts to STARTING state at time {time}', file=log)
+                        print(f'Arm {arm.number} shifts to STARTING state at time {time - offset}', file=info)
                         goto .fsmstart # We need goto to shift state immediately at time 0
 
                 # Starting state
@@ -46,11 +60,11 @@ def runcycle(arms, strikers, strikercommands, startcycle, endcycle, numberofnote
                 elif arm.state == shimon.arm.ArmState.STARTING:
                     # Drop the current message on receiving next instruction in Starting state
                     if len(arm.instructionqueue) > 1 and time == arm.nextinstructiontime():
-                        print(f'Warning: Arm {arm.number} receives new instruction on starting state, dropping the current instruction\n    Time: {time}\n    Target position: {arm.currentinstructiontargetposition()}\n    Position: {arm.position}', file=sys.stderr)
+                        logwarning(f'Arm {arm.number} receives new instruction on starting state, dropping the current instruction\n    Time: {time - offset}\n    Target position: {arm.currentinstructiontargetposition()}\n    Position: {arm.position}')
                         arm.instructionqueue.pop(0)
                         # Keep only the latest message received at the same time
                         while len(arm.instructionqueue) > 1 and arm.nextinstructiontime() == arm.currentinstructiontime():
-                            print(f'Warning: Arm {arm.number} receives multiple instructions at time {time}, dropping old instruction\n    Time: {time}\n    Target position: {arm.currentinstructiontargetposition()}\n    Position: {arm.position}', file=sys.stderr)
+                            logwarning(f'Arm {arm.number} receives multiple instructions at time {time - offset}, dropping old instruction\n    Time: {time - offset}\n    Target position: {arm.currentinstructiontargetposition()}\n    Position: {arm.position}')
                             arm.instuctionqueue.pop(0)
                         # Reset wait time
                         arm.waittime = 35
@@ -60,7 +74,7 @@ def runcycle(arms, strikers, strikercommands, startcycle, endcycle, numberofnote
                         arm.position = arm.currentinstructiontargetposition()
                         arm.instructionqueue.pop(0)
                         arm.state = shimon.arm.ArmState.WAITING
-                        print(f'Arm {arm.number} shifts to WAITING state at time {time}', file=log)
+                        print(f'Arm {arm.number} shifts to WAITING state at time {time - offset}', file=info)
                         arm.waittime = 35
                         goto .fsmstart
                     # Otherwise, wait for 35 ms before starting to execute the command
@@ -69,7 +83,7 @@ def runcycle(arms, strikers, strikercommands, startcycle, endcycle, numberofnote
                         if arm.waittime == 0:
                             # We don't have to shift state immediately so no goto here
                             arm.state = shimon.arm.ArmState.ACCELERATING
-                            print(f'Arm {arm.number} shifts to ACCELERATING state at time {time}', file=log)
+                            print(f'Arm {arm.number} shifts to ACCELERATING state at time {time - offset}', file=info)
                             # Set direction. 1 = right, -1 = left
                             if arm.currentinstructiontargetposition() > arm.position:
                                 arm.direction = 1
@@ -81,14 +95,14 @@ def runcycle(arms, strikers, strikercommands, startcycle, endcycle, numberofnote
                 elif arm.state == shimon.arm.ArmState.ACCELERATING:
                     # Drop the current message on receiving next instruction and shift to Starting state
                     if len(arm.instructionqueue) > 1 and time == arm.nextinstructiontime():
-                        print(f'Warning: Arm {arm.number} receives new instruction on accelerating state, dropping the current instruction\n    Time: {time}\n    Target position: {arm.currentinstructiontargetposition()}\n    Position: {arm.position}', file=sys.stderr)
+                        logwarning(f'Arm {arm.number} receives new instruction on accelerating state, dropping the current instruction\n    Time: {time - offset}\n    Target position: {arm.currentinstructiontargetposition()}\n    Position: {arm.position}')
                         arm.instructionqueue.pop(0)
                         # Keep only the latest message received at the same time
                         while len(arm.instructionqueue) > 1 and arm.nextinstructiontime() == arm.currentinstructiontime():
-                            print(f'Warning: Arm {arm.number} receives multiple instructions at time {time}, dropping old instruction\n    Time: {time}\n    Target position: {arm.currentinstructiontargetposition()}\n    Position: {arm.position}', file=sys.stderr)
+                            logwarning(f'Warning: Arm {arm.number} receives multiple instructions at time {time - offset}, dropping old instruction\n    Time: {time - offset}\n    Target position: {arm.currentinstructiontargetposition()}\n    Position: {arm.position}')
                             arm.instuctionqueue.pop(0)
                         arm.state = shimon.arm.ArmState.STARTING
-                        print(f'Arm {arm.number} shifts to STARTING state at time {time}', file=log)
+                        print(f'Arm {arm.number} shifts to STARTING state at time {time - offset}', file=info)
                         # Reset wait time
                         arm.waittime = 35
                         goto .fsmstart
@@ -110,7 +124,7 @@ def runcycle(arms, strikers, strikercommands, startcycle, endcycle, numberofnote
                             newposition = intermediateposition + newspeed * (1 - maxspeedtime)
                         # If we are moving past the target position in this cycle, jump to next message
                         if abs(newposition - arm.position) - abs(arm.currentinstructiontargetposition() - arm.position) > sys.float_info.epsilon:
-                            print(f'Warning: Arm {arm.number} moves beyond target position on acceleration\n    Time: {time}\n    Target position: {arm.currentinstructiontargetposition()}\n    Position: {arm.position}', file=sys.stderr)
+                            logwarning(f'Arm {arm.number} moves beyond target position on acceleration\n    Time: {time - offset}\n    Target position: {arm.currentinstructiontargetposition()}\n    Position: {arm.position}')
                             arm.position = arm.currentinstructiontargetposition()
                             arm.speed = 0
                             arm.instructionqueue.pop(0)
@@ -124,18 +138,18 @@ def runcycle(arms, strikers, strikercommands, startcycle, endcycle, numberofnote
                         if abs(arm.speed - arm.direction * maxspeed) < sys.float_info.epsilon:
                             # We don't have to shift state immediately so no goto here
                             arm.state = shimon.arm.ArmState.MOVING
-                            print(f'Arm {arm.number} shifts to MOVING state at time {time}', file=log)
+                            print(f'Arm {arm.number} shifts to MOVING state at time {time - offset}', file=info)
 
                 # Moving state
                 # Motion of constant speed
                 elif arm.state == shimon.arm.ArmState.MOVING:
                     # Drop the current message on receiving next instruction and shift to Starting state
                     if len(arm.instructionqueue) > 1 and time == arm.nextinstructiontime():
-                        print(f'Warning: Arm {arm.number} receives new instruction on moving state, dropping the current instruction\n    Time: {time}\n    Target position: {arm.currentinstructiontargetposition()}\n    Position: {arm.position}', file=sys.stderr)
+                        logwarning(f'Arm {arm.number} receives new instruction on moving state, dropping the current instruction\n    Time: {time - offset}\n    Target position: {arm.currentinstructiontargetposition()}\n    Position: {arm.position}')
                         arm.instructionqueue.pop(0)
                         # Keep only the latest message received at the same time
                         while len(arm.instructionqueue) > 1 and arm.nextinstructiontime() == arm.currentinstructiontime():
-                            print(f'Warning: Arm {arm.number} receives multiple instructions at time {time}, dropping old instruction\n    Time: {time}\n    Target position: {arm.currentinstructiontargetposition()}\n    Position: {arm.position}', file=sys.stderr)
+                            logwarning(f'Arm {arm.number} receives multiple instructions at time {time - offset}, dropping old instruction\n    Time: {time - offset}\n    Target position: {arm.currentinstructiontargetposition()}\n    Position: {arm.position}')
                             arm.instuctionqueue.pop(0)
                         arm.state = shimon.arm.ArmState.STARTING
                         # Reset wait time
@@ -146,10 +160,10 @@ def runcycle(arms, strikers, strikercommands, startcycle, endcycle, numberofnote
                         intermediatetime = float('nan')
                         newposition = arm.position + arm.speed
                         decelerateposition = arm.currentinstructiontargetposition() - arm.direction * 0.5 * arm.deceleration() * (arm.currentinstructiontargetspeed() / arm.deceleration()) ** 2
-                        # If we are moving past the target position in this cycle, jump to next message
                         """
+                        # If we are moving past the target position in this cycle, jump to next message
                         if abs(newposition - arm.position) - abs(arm.currentinstructiontargetposition() - arm.position) > sys.float_info.epsilon:
-                            print(f'Warning: Arm {arm.number} moves beyond target position on constant speed motion\n    Time: {time}\n    Target position: {arm.currentinstructiontargetposition()}\n    Position: {arm.position}', file=sys.stderr)
+                            print(f'Warning: Arm {arm.number} moves beyond target position on constant speed motion\n    Time: {time - offset}\n    Target position: {arm.currentinstructiontargetposition()}\n    Position: {arm.position}', file=sys.stderr)
                             arm.position = arm.currentinstructiontargetposition()
                             arm.speed = 0
                             arm.instructionqueue.pop(0)
@@ -167,7 +181,7 @@ def runcycle(arms, strikers, strikercommands, startcycle, endcycle, numberofnote
                                 arm.speed = 0.0
                                 arm.instructionqueue.pop(0)
                                 arm.state = shimon.arm.ArmState.WAITING
-                                print(f'Arm {arm.number} shifts to WAITING state at time {time}', file=log)
+                                print(f'Arm {arm.number} shifts to WAITING state at time {time - offset}', file=info)
                                 arm.waittime = 35
                                 continue
                             # Calculate new position after deceleration
@@ -180,17 +194,19 @@ def runcycle(arms, strikers, strikercommands, startcycle, endcycle, numberofnote
                         if not math.isnan(intermediatetime) or abs(newposition - decelerateposition) < sys.float_info.epsilon:
                             # We don't have to shift state immediately so no goto here
                             arm.state = shimon.arm.ArmState.DECELERATING
-                            print(f'Arm {arm.number} shifts to DECELERATING state at time {time}', file=log)
+                            print(f'Arm {arm.number} shifts to DECELERATING state at time {time - offset}', file=info)
 
                 # Decelerating state
                 # Deceleration to target position
                 elif arm.state == shimon.arm.ArmState.DECELERATING:
                     if len(arm.instructionqueue) > 1 and time == arm.nextinstructiontime():
-                        print(f'Warning: Arm {arm.number} receives new instruction on decelerating state, dropping the current instruction\n    Time: {time}\n    Target position: {arm.currentinstructiontargetposition()}\n    Position: {arm.position}', file=sys.stderr)
+                        logwarning(f'Arm {arm.number} receives new instruction on decelerating state, dropping the current instruction\n    Time: {time - offset}\n    Target position: {arm.currentinstructiontargetposition()}\n    Position: {arm.position}')
+                        # Have to decelerate after all
+                        arm.position = arm.currentinstructiontargetposition()
                         arm.instructionqueue.pop(0)
                         # Keep only the latest message received at the same time
                         while len(arm.instructionqueue) > 1 and arm.nextinstructiontime() == arm.currentinstructiontime():
-                            print(f'Warning: Arm {arm.number} receives multiple instructions at time {time}, dropping old instruction\n    Time: {time}\n    Target position: {arm.currentinstructiontargetposition()}\n    Position: {arm.position}', file=sys.stderr)
+                            logwarning(f'Arm {arm.number} receives multiple instructions at time {time - offset}, dropping old instruction\n    Time: {time - offset}\n    Target position: {arm.currentinstructiontargetposition()}\n    Position: {arm.position}')
                             arm.instuctionqueue.pop(0)
                         arm.state = shimon.arm.ArmState.STARTING
                         # Reset wait time
@@ -206,7 +222,7 @@ def runcycle(arms, strikers, strikercommands, startcycle, endcycle, numberofnote
                             arm.speed = 0.0
                             arm.instructionqueue.pop(0)
                             arm.state = shimon.arm.ArmState.WAITING
-                            print(f'Arm {arm.number} shifts to WAITING state at time {time}', file=log)
+                            print(f'Arm {arm.number} shifts to WAITING state at time {time - offset}', file=info)
                             arm.waittime = 35
                         arm.position = newposition
                         arm.speed = newspeed
@@ -216,29 +232,32 @@ def runcycle(arms, strikers, strikercommands, startcycle, endcycle, numberofnote
                             arm.speed = 0.0
                             arm.instructionqueue.pop(0)
                             arm.state = shimon.arm.ArmState.WAITING
-                            print(f'Arm {arm.number} shifts to WAITING state at time {time}', file=log)
+                            print(f'Arm {arm.number} shifts to WAITING state at time {time - offset}', file=info)
                             arm.waittime = 35
                 # if len(arm.instructionqueue) > 0: # and arm.number == 4:
                 #     arm.reportlog(log)
         # log.write('\n')
         if arms[1].position - arms[0].position < 15.0:
-            loginfo(f'Arm 1 collides with arm 2 at {time} ms')
-            return False, []
+            logerror(f'Arm 1 collides with arm 2 at {time - offset} ms')
+            return False, [1, 2]
         elif arms[2].position - arms[1].position < 55.5:
-            loginfo(f'Arm 2 collides with arm 3 at {time} ms')
-            return False, []
+            logerror(f'Arm 2 collides with arm 3 at {time - offset} ms')
+            return False, [2, 3]
         elif arms[3].position - arms[2].position < 15.0:
-            loginfo(f'Arm 3 collides with arm 4 at {time} ms')
-            return False, []
+            logerror(f'Arm 3 collides with arm 4 at {time - offset} ms')
+            return False, [3, 4]
         elif arms[0].position < shimon.arm.positiontable[0]:
-            loginfo(f'Arm 1 moves beyond the rail at {time} ms')
-            return False, []
+            logerror(f'Arm 1 moves beyond the rail at {time - offset} ms')
+            return False, [1]
         elif arms[3].position > shimon.arm.positiontable[-1]:
-            loginfo(f'Arm 4 moves beyond the rail at {time} ms')
-            return False, []
+            logerror(f'Arm 4 moves beyond the rail at {time - offset} ms')
+            return False, [4]
 
         # Strikers
         if strikercommands is not None and len(strikercommands) > 0:
+            for item in strikerhits.copy():
+                if time >= item[1] + 200:
+                    strikerhits.remove(item)
             for striker in strikers:
                 if len(striker.instructionqueue) > 0:
                     # Hit the key when receiving the command after 85 ms
@@ -250,18 +269,19 @@ def runcycle(arms, strikers, strikercommands, startcycle, endcycle, numberofnote
                                 striker.deadcounter = 1
                             else:
                                 # If the striker receives 3 or more messages at a rate of 13 hits per second or faster, it will die
-                                if time - striker.lasthittime - 77 <= sys.float_info.epsilon and time - striker.lasthittime >= sys.float_info.epsilon:
+                                if time - striker.lasthittime - math.ceil(1000 / parameters.strikermaxhitfrequency) <= sys.float_info.epsilon and time - striker.lasthittime >= sys.float_info.epsilon:
                                     striker.lasthittime = time
                                     striker.deadcounter += 1
                                     if striker.deadcounter == 3:
                                         striker.isdead = True
-                                        loginfo(f'Striker {striker.number} is dead at time {time}')
+                                        loginfo(f'Striker {striker.number} is dead at time {time - offset}')
                                 # Otherwise reset the counter
                                 else:
                                     striker.lasthittime = time
                                     striker.deadcounter = 1
                             if not striker.isdead:
-                                loginfo(f'Striker {striker.number} hits the keyboard at time {time} on note {checkmidi.getnote(arms[striker.armnumber - 1].position)}')
+                                strikerhits.append((striker.number, time))
+                                loginfo(f'Striker {striker.number} hits the keyboard at time {time - offset} on note {checkmidi.getnote(arms[striker.armnumber - 1].position)}')
                                 hitnotes.append(checkmidi.getnote(arms[striker.armnumber - 1].position))
                         striker.instructionqueue.pop(0)
                         # Check note
@@ -271,50 +291,15 @@ def runcycle(arms, strikers, strikercommands, startcycle, endcycle, numberofnote
                                     loginfo(f'Striker {striker.number} hits a note not in the MIDI file')
                             else:
                                 # Skip whole chord when time get past the chord (e.g. the chord has 5 or more notes while Shimon's pathplanner can only choose 4)
-                                if time - offset > max(notelist[0][0][0]) + 1:
-                                    loginfo(f'Skipped {notelist[0]}')
+                                if time - offset > max(notelist[0][0][0]) + parameters.timingthreshold:
+                                    logwarning(f'Skipped MIDI notes {[item[1] for item in notelist[0]]} at time {notelist[0][0][0][0]}')
                                     notelist.pop(0)
-                                isvalid, matchednote = checkmidi.isnotevalid(time - offset, checkmidi.getnote(arms[striker.armnumber - 1].position), notelist[0])
+                                isvalid, matchednote = checkmidi.isnotevalid(time - offset, checkmidi.getnote(arms[striker.armnumber - 1].position), notelist[0], parameters.timingthreshold)
                                 if not isvalid:
                                     if not striker.isdead:
-                                        loginfo(f'Striker {striker.number} hits a wrong note ({checkmidi.getnote(arms[striker.armnumber - 1].position)}) or at a wrong time ({time}) compared to the MIDI file: {notelist[0]}')
+                                        logwarning(f'Striker hits a note {matchednote[0]} of correct pitch but different octave' if len(matchednote) > 0 else f'Striker {striker.number} hits a wrong note ({checkmidi.getnote(arms[striker.armnumber - 1].position)}) or at a wrong time ({time - offset}) compared to the MIDI file: {notelist[0]}')
                                 else:
                                     notelist[0].remove(matchednote)
                                     if len(notelist[0]) == 0:
                                         notelist.pop(0)
     return True, hitnotes
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--armfile')
-    parser.add_argument('--strikerfile')
-    parser.add_argument('--midifile')
-    parser.add_argument('--arm1position', type=int)
-    parser.add_argument('--arm2position', type=int)
-    parser.add_argument('--arm3position', type=int)
-    parser.add_argument('--arm4position', type=int)
-    args = parser.parse_args()
-    if args.armfile is None:
-        print('Please specify at least an arm message file', file=sys.stderr)
-    else:
-        armlist = []
-        armfile = open(args.armfile, 'r')
-        for line in armfile:
-            tokens = line.split()
-            armlist.append([int(tokens[7]), int(tokens[1]), int(tokens[2]), float(tokens[3]), float(tokens[4])])
-        armfile.close()
-        if args.arm1position is not None and args.arm2position is not None and args.arm3position is not None and args.arm4position is not None:
-            startpositions = [args.arm1position, args.arm2position, args.arm3position, args.arm4position]
-        else:
-            startpositions = [shimon.arm.positiontable[0], shimon.arm.positiontable[2], shimon.arm.positiontable[-3], shimon.arm.positiontable[-1]]
-        if args.strikerfile is None:
-            checkinstructionlist(armlist, startpositions=startpositions)
-        else:
-            strikerlist = []
-            strikerfile = open(args.strikerfile, 'r')
-            for line in strikerfile:
-                tokens = line.split()
-                if tokens[0] != 'p':
-                    strikerlist.append([int(tokens[12]), int(tokens[8]), int(tokens[7]), int(tokens[6]), int(tokens[5]), int(tokens[4]), int(tokens[3]), int(tokens[2]), int(tokens[1])])
-            strikerfile.close()
-            checkinstructionlist(armlist, startpositions=startpositions, strikercommands=strikerlist, midifilename=args.midifile)
