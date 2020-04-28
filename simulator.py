@@ -6,10 +6,11 @@ import gui
 import shimon.arm
 import shimon.striker
 import checkmidi
+import log
 
 def initialize(instructionlist, startpositions=[shimon.arm.positiontable[0], shimon.arm.positiontable[2], shimon.arm.positiontable[-4], shimon.arm.positiontable[-2]], strikercommands=None, midifilename=None, infofilename='guiinfo.log', warningfilename='guiwarning.log'):
-    gui.info = open(infofilename, mode='w')
-    gui.warning = open(warningfilename, mode='w')
+    # Open log output
+    log.open(infofilename, warningfilename)
 
     # Arm initialization
     instructionlist = sorted(instructionlist, key=lambda x: x[0])
@@ -32,7 +33,7 @@ def initialize(instructionlist, startpositions=[shimon.arm.positiontable[0], shi
                 if strikercommand[i + 1] == 1:
                     gui.strikers[i].instructionqueue.append(strikercommand[0])
         if midifilename is not None:
-            gui.numberofnotes, gui.notelist = checkmidi.readnotes(midifilename, gui.info, gui.warning)
+            gui.numberofnotes, gui.notelist = checkmidi.readnotes(midifilename)
             gui.offset = checkmidi.findstaticoffset(strikercommands[0][0] + 85, gui.notelist)
             print('Static offset:', gui.offset, file=sys.stderr)
             gui.midifilename = midifilename

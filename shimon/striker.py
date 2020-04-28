@@ -6,3 +6,4 @@ class Striker:
         self.isdead = False
         self.deadcounter = 0
         self.instructionqueue = []
+        self.isblack = number % 2 == 1

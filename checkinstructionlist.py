@@ -6,23 +6,14 @@ import shimon.arm
 import shimon.striker
 import checkmidi
 import cycle
+import log
 
 def checkinstructionlist(instructionlist, startpositions=[shimon.arm.positiontable[0], shimon.arm.positiontable[2], shimon.arm.positiontable[-4], shimon.arm.positiontable[-2]], strikercommands=None, midifilename=None, infofilename='info.log', warningfilename='warning.log'):
-    def loginfo(logmessage):
-        print(logmessage, file=sys.stderr)
-        print(logmessage, file=info)
-
-    # Open a log output
-    info = open(infofilename, mode='w')
-
-    # Open a warning output
-    warning = open(warningfilename, mode='w')
+    # Open log output
+    log.open(infofilename, warningfilename)
 
     # Arm initialization
     instructionlist = sorted(instructionlist, key=lambda x: x[0])
-    # mintime = instructionlist[0][0]
-    # for i in range(len(instructionlist)):
-    #     instructionlist[i][0] -= mintime
     totaltime = instructionlist[-1][0] + 2000
     arms = [shimon.arm.Arm(1, startpositions[0]), shimon.arm.Arm(2, startpositions[1]), shimon.arm.Arm(3, startpositions[2]), shimon.arm.Arm(4, startpositions[3])]
     for instruction in instructionlist:
@@ -45,15 +36,14 @@ def checkinstructionlist(instructionlist, startpositions=[shimon.arm.positiontab
                 if strikercommand[i + 1] == 1:
                     strikers[i].instructionqueue.append(strikercommand[0])
         if midifilename is not None:
-            numberofnotes, notelist = checkmidi.readnotes(midifilename, info, warning)
+            numberofnotes, notelist = checkmidi.readnotes(midifilename)
             offset = checkmidi.findstaticoffset(strikercommands[0][0] + 85, notelist)
-            print('Static offset:', offset, file=sys.stderr)
+            log.info(f'Static offset: {offset}')
 
-    success, hitnotes = cycle.runcycle(arms, strikers, strikercommands, 0, totaltime, numberofnotes, notelist, offset, midifilename, info, warning)
+    success, hitnotes = cycle.run(arms, strikers, strikercommands, 0, totaltime, numberofnotes, notelist, offset, midifilename)
     if success:
-        loginfo('Simulation successful')
-    warning.close()
-    info.close()
+        log.info('Simulation successful')
+    log.close()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

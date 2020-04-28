@@ -1,3 +1,4 @@
+import copy
 import sys
 import OpenGL
 from OpenGL.GL import *
@@ -10,9 +11,11 @@ import gui.stats
 
 import sound
 
-import cycle
 import shimon.arm
+import cycle
+import log
 
+# GUI states
 window_width = 1.0
 window_height = 1.0
 
@@ -24,6 +27,7 @@ fps = 0
 
 paused = False
 
+# Simulation states
 arms = []
 strikers = []
 strikercommands = []
@@ -32,12 +36,12 @@ numberofnotes = 0
 notelist = []
 offset = 0
 midifilename = None
-info = None
-warning = None
-hitnotes = []
 
 startcycle = 0
 stop = False
+
+initialarms = []
+initialstrikers = []
 
 def idleFunc():
     global frame
@@ -45,18 +49,6 @@ def idleFunc():
     global basetime
     global time
     global fps
-
-    global arms
-    global strikers
-    global strikercommands
-    global totaltime
-    global numberofnotes
-    global notelist
-    global offset
-    global midifilename
-    global info
-    global warning
-    global hitnotes
 
     global startcycle
     global stop
@@ -86,18 +78,22 @@ def idleFunc():
                 time = totaltime
                 stop = True
             if not paused:
-                cyclesuccess, hitnotes = cycle.runcycle(arms, strikers, strikercommands, startcycle, time, numberofnotes, notelist, offset, midifilename, info, warning)
+                cyclesuccess, crashedarms = cycle.run(arms, strikers, strikercommands, startcycle, time, numberofnotes, notelist, offset, midifilename)
                 # Play hit notes
-                for note in hitnotes:
-                    sound.play(note)
+                for notehit in cycle.notehits:
+                    if not notehit[2]:
+                        # Hitvel is yet to be implemented, assign a static 127
+                        sound.play(notehit[0], 127)
+                        notehit[2] = True
                 if not cyclesuccess:
-                    gui.arm.crashedarms = hitnotes
+                    gui.arm.crashedarms = crashedarms
                     stop = True
                     glutPostRedisplay()
+                    log.close()
                 else:
                     if time == totaltime:
-                        info.write('Simulation successful\n')
-                        info.close()
+                        log.info('Simulation successful')
+                        log.close()
     frame += 1
 
 def displayFunc():
@@ -107,18 +103,49 @@ def displayFunc():
     gui.stats.draw(-window_width + 0.02, window_height - 0.08, time, fps)
     arm = shimon.arm.Arm(1, 44)
     gui.arm.draw(arms, strikers, cycle.strikerhits)
-    gui.keyboard.hitnotes = hitnotes
-    gui.keyboard.draw()
+    gui.keyboard.draw(cycle.notehits)
     glutSwapBuffers()
 
 def keyboardFunc(key, x, y):
+    global starttime
+    global time
     global paused
+    global arms
+    global strikers
+
+    # Space to pause
     if key == b' ':
         paused = not paused
+    # R to restart simulation
+    elif key in [b'r', b'R']:
+        log.info('Restart simulation')
+        for i in range(len(arms)):
+            arms[i].number = initialarms[i].number
+            arms[i].position = initialarms[i].position
+            arms[i].state = initialarms[i].state
+            arms[i].speed = initialarms[i].speed
+            arms[i].direction = initialarms[i].direction
+            arms[i].instructionqueue = copy.deepcopy(initialarms[i].instructionqueue)
+            arms[i].waittime = initialarms[i].waittime
+            arms[i].hitvel = initialarms[i].hitvel
+        for i in range(len(strikers)):
+            strikers[i].number = initialstrikers[i].number
+            strikers[i].armnumber = initialstrikers[i].armnumber
+            strikers[i].lasthittime = initialstrikers[i].lasthittime
+            strikers[i].isdead = initialstrikers[i].isdead
+            strikers[i].deadcounter = initialstrikers[i].deadcounter
+            strikers[i].instructionqueue = copy.deepcopy(initialstrikers[i].instructionqueue)
+            strikers[i].isblack = initialstrikers[i].isblack
+        elapsed_time = glutGet(GLUT_ELAPSED_TIME)
+        starttime = elapsed_time
+        time = 0
+        cycle.notehits.clear()
+        cycle.strikerhits.clear()
 
 def reshapeFunc(width, height):
     global window_width
     global window_height
+
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
     if width > height:
@@ -132,6 +159,13 @@ def reshapeFunc(width, height):
     glViewport(0, 0, width, height)
 
 def main():
+    global initialarms
+    global initialstrikers
+
+    # Make deep copies for arms and strikers
+    initialarms = copy.deepcopy(arms)
+    initialstrikers = copy.deepcopy(strikers)
+
     # Initialize GLUT window
     glutInit()
     glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_MULTISAMPLE)

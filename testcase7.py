@@ -9,13 +9,13 @@ def runtest():
     armlist = []
     armlist.append([0, 3, 798, 0.421, 959])
     strikerlist = []
-    strikerlist.append([555, 0, 0, 0, 0, 1, 0, 0, 0])
+    strikerlist.append([555, 0, 0, 0, 0, 0, 1, 0, 0])
     
     checkinstructionlist.checkinstructionlist(armlist, strikercommands=strikerlist, infofilename=infofilename)
     log = open(infofilename, 'r')
     logstring = log.read()
     log.close()
-    if logstring == 'Arm 3 shifts to STARTING state at time 0\nArm 3 shifts to ACCELERATING state at time 34\nArm 3 shifts to MOVING state at time 267\nStriker 5 hits the keyboard at time 640 on note 77\nArm 3 shifts to DECELERATING state at time 736\nArm 3 shifts to WAITING state at time 746\nSimulation successful\n':
+    if logstring == 'Arm 3 shifts to STARTING state at time 0\nArm 3 shifts to ACCELERATING state at time 34\nArm 3 shifts to MOVING state at time 267\nStriker 6 hits the keyboard at time 640 on note 76\nArm 3 shifts to DECELERATING state at time 710\nArm 3 shifts to WAITING state at time 720\nSimulation successful\n':
         print('Test passed', file=sys.stderr)
     else:
         print('Test failed', file=sys.stderr)

@@ -8,12 +8,10 @@ import shimon.arm
 whitesubindex = {0: 0, 2: 1, 4: 2, 5: 3, 7: 4, 9: 5, 11: 6}
 blackoffset = {1: 0.05, 3: 0.12, 6: 0.26, 8: 0.33, 10: 0.40}
 
-hitnotes = []
-
 def isblack(note):
     return note % 12 in [1, 3, 6, 8, 10]
 
-def drawkey(note):
+def drawkey(note, ishit):
     center = positiontox(shimon.arm.positiontable[note - 48])
     glBegin(GL_QUADS)
     if isblack(note):
@@ -21,7 +19,7 @@ def drawkey(note):
         right = center + 0.02
         top = 0.7
         bottom = 0.1
-        if note in hitnotes:
+        if ishit:
             glColor3f(1.0, 0.7, 0.0)
         else:
             glColor3f(0.0, 0.0, 0.0)
@@ -69,7 +67,7 @@ def drawkey(note):
         glVertex3f(right + 0.0025, top - 0.0025, 0.0)
         glVertex3f(right + 0.0025, top + 0.0025, 0.0)
         # Draw the key
-        if note in hitnotes:
+        if ishit:
             glColor3f(1.0, 0.7, 0.0)
         else:
             glColor3f(1.0, 1.0, 1.0)
@@ -79,12 +77,12 @@ def drawkey(note):
         glVertex3f(right, top, 0.0)
     glEnd()
 
-def draw():
+def draw(notehits):
     # Draw black keys first
     for i in range(48, 96):
         if (isblack(i)):
-            drawkey(i)
+            drawkey(i, i in [notehit[0] for notehit in notehits])
     # Draw white keys
     for i in range(48, 96):
         if not isblack(i):
-            drawkey(i)
+            drawkey(i, i in [notehit[0] for notehit in notehits])

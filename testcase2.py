@@ -10,11 +10,11 @@ def runtest():
     armlist.append([0, 1, 267, 0.421, 959])
     armlist.append([0, 2, 377, 0.3, 750])
     
-    checkinstructionlist.checkinstructionlist(armlist, infofilename=infofilename)
+    checkinstructionlist.checkinstructionlist(armlist, infofilename=infofilename, warningfilename=None)
     log = open(infofilename, 'r')
     logstring = log.read()
     log.close()
-    if logstring == 'Arm 1 shifts to STARTING state at time 0\nArm 2 shifts to STARTING state at time 0\nArm 1 shifts to ACCELERATING state at time 34\nArm 2 shifts to ACCELERATING state at time 34\nArm 1 collides with arm 2 at 256 ms\n':
+    if logstring == 'Arm 1 shifts to STARTING state at time 0\nArm 2 shifts to STARTING state at time 0\nArm 1 shifts to ACCELERATING state at time 34\nArm 2 shifts to ACCELERATING state at time 34\nError: Arm 1 collides with arm 2 at 256 ms\n':
         print('Test passed', file=sys.stderr)
     else:
         print('Test failed', file=sys.stderr)

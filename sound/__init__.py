@@ -26,6 +26,6 @@ def start():
     sfid = fs.sfload('sound/TimGM6mb.sf2')
     fs.program_select(0, sfid, 0, 13)
 
-def play(note):
+def play(note, hitvel):
     global fs
-    fs.noteon(0, note, 127)
+    fs.noteon(0, note, hitvel)

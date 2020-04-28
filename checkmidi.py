@@ -1,29 +1,40 @@
 import mido
 import sys
 
-import shimon.arm
+from shimon.arm import positiontable
+import log
+
+blackpositiontable = []
+whitepositiontable = []
+for i in range(4):
+    for j in range(12):
+        if j in [1, 3, 6, 8, 10]:
+            blackpositiontable.append(positiontable[i * 12 + j])
+        else:
+            whitepositiontable.append(positiontable[i * 12 + j])
 
 midimapping = {}
 for i in range(48):
-    midimapping[shimon.arm.positiontable[i]] = i + 48
+    midimapping[positiontable[i]] = i + 48
 
 def findstaticoffset(time, notelist):
     return time - notelist[0][0][0][0]
 
-def getnote(position):
-    if position in shimon.arm.positiontable:
+def getnote(position, isblack):
+    checkpositiontable = blackpositiontable if isblack else whitepositiontable
+    if position in checkpositiontable:
         return midimapping[position]
     else:
-        for i in range(len(shimon.arm.positiontable) - 1):
-            if position > shimon.arm.positiontable[i] and position < shimon.arm.positiontable[i + 1]:
-                if position - shimon.arm.positiontable[i] < shimon.arm.positiontable[i + 1] - position:
-                    return midimapping[shimon.arm.positiontable[i]]
+        for i in range(len(checkpositiontable) - 1):
+            if position > checkpositiontable[i] and position < checkpositiontable[i + 1]:
+                if position - checkpositiontable[i] < checkpositiontable[i + 1] - position:
+                    return midimapping[checkpositiontable[i]]
                 else:
-                    return midimapping[shimon.arm.positiontable[i + 1]]
+                    return midimapping[checkpositiontable[i + 1]]
         return None
 
-def isinoctave(note1, note2):
-    return note1 > note2 - 12 and note1 < note2 + 12
+def issamepitch(note1, note2):
+    return abs(note1 - note2) % 12 == 0
 
 def timingwindow(time, errorallowed):
     window = {time}
@@ -32,31 +43,28 @@ def timingwindow(time, errorallowed):
         window.add(time - i)
     return window
 
+def isintimingwindow(window, checknote):
+    for t in window:
+        if t in checknote[0]:
+            return True
+    return False
+
 def isnotevalid(time, note, checknotelist, errorallowed):
     reason = []
     if len(checknotelist) == 0:
         return False, reason
-    if time not in checknotelist[0][0] and time - 1 not in checknotelist[0][0] and time + 1 not in checknotelist[0][0]:
+    window = timingwindow(time, errorallowed)
+    if not isintimingwindow(window, checknotelist[0]):
         return False, reason
     for checknote in checknotelist:
-        intimingwindow = False
-        for t in timingwindow(time, errorallowed):
-            if t in checknote[0]:
-                intimingwindow = True
-                break
-        if intimingwindow and isinoctave(note, checknote[1]):
+        intimingwindow = isintimingwindow(window, checknote)
+        if intimingwindow and note == checknote[1]:
             return True, checknote
-        elif intimingwindow and abs(note - checknote[1]) % 12 == 0:
+        elif intimingwindow and issamepitch(note, checknote[1]):
             reason.append(checknote)
     return False, reason
 
-def readnotes(filename, info, warning):
-    def logwarning(logmessage):
-        logmessage = 'Warning: ' + logmessage
-        print(logmessage, file=sys.stderr)
-        print(logmessage, file=info)
-        print(logmessage, file=warning)
-
+def readnotes(filename):
     midifile = mido.MidiFile(filename)
     print('Ticks per beat:', midifile.ticks_per_beat)
     n = 0
@@ -70,14 +78,14 @@ def readnotes(filename, info, warning):
         time += message.time
         f.write(f'{message}\n')
         if message.type == 'set_tempo':
-            print(f'The tempo has been changed to {mido.tempo2bpm(message.tempo)} beats per minute, which is {message.tempo / midifile.ticks_per_beat} µs per tick')
+            log.info(f'The tempo has been changed to {mido.tempo2bpm(message.tempo)} beats per minute, which is {message.tempo / midifile.ticks_per_beat} µs per tick')
         elif message.type == 'note_on':
             # We are in a chord when message time is zero
             if int(round(time * 1000, 4)) == currentchordtime and len(currentchord) != 0:
                 if message.note >= 48 and message.note <= 95:
                     currentchord.append((currentchordtime, message.note))
                 else:
-                    logwarning(f'Midi note {message.note} at time {int(round(time * 1000, 4))} is out of range and will not be played by Shimon')
+                    log.warning(f'Midi note {message.note} at time {int(round(time * 1000, 4))} is out of range and will not be played by Shimon')
             # Otherwise we are on the first note of the chord
             else:
                 # Flush non-empty chord first
@@ -99,7 +107,7 @@ def readnotes(filename, info, warning):
                     currentchord = [(int(round(time * 1000, 4)), message.note)]
                     currentchordtime = int(round(time * 1000, 4))
                 else:
-                    logwarning(f'Midi note {message.note} at time {int(round(time * 1000, 4))} is out of range and will not be played by Shimon')
+                    log.warning(f'Midi note {message.note} at time {int(round(time * 1000, 4))} is out of range and will not be played by Shimon')
     # Flush non-empty chord
     if len(currentchord) != 0:
         # Construct a range of timestamps
