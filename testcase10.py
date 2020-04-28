@@ -13,7 +13,7 @@ def runtest():
     strikerlist.append([665, 0, 0, 0, 0, 0, 1, 0, 0])
     strikerlist.append([695, 0, 0, 0, 0, 0, 1, 0, 0])
     
-    checkinstructionlist.checkinstructionlist(armlist, strikercommands=strikerlist, infofilename=infofilename)
+    checkinstructionlist.checkinstructionlist(armlist, strikercommands=strikerlist, infofilename=infofilename, warningfilename=None)
     log = open(infofilename, 'r')
     logstring = log.read()
     log.close()

@@ -10,7 +10,7 @@ def runtest():
     armlist.append([0, 2, 624, 0.421, 959])
     armlist.append([0, 3, 698, 0.3, 750])
     
-    checkinstructionlist.checkinstructionlist(armlist, infofilename=infofilename)
+    checkinstructionlist.checkinstructionlist(armlist, infofilename=infofilename, warningfilename=None)
     log = open(infofilename, 'r')
     logstring = log.read()
     log.close()

@@ -13,7 +13,7 @@ def runtest():
     armlist.append([0, 3, 1240, 0.421, 959])
     armlist.append([0, 4, 1315, 0.421, 959])
     
-    checkinstructionlist.checkinstructionlist(armlist, startpositions=[shimon.arm.positiontable[0], shimon.arm.positiontable[2], shimon.arm.positiontable[7], shimon.arm.positiontable[9]], infofilename=infofilename)
+    checkinstructionlist.checkinstructionlist(armlist, startpositions=[shimon.arm.positiontable[0], shimon.arm.positiontable[2], shimon.arm.positiontable[7], shimon.arm.positiontable[9]], infofilename=infofilename, warningfilename=None)
     log = open(infofilename, 'r')
     logstring = log.read()
     log.close()
