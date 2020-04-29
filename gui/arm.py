@@ -20,6 +20,7 @@ def drawcircle(x, y, radius, sides=60):
     glEnd()
 
 def draw(arms, strikers, strikerhits):
+    # Draw strikers
     for striker in strikers:
         x = positiontox(arms[striker.armnumber - 1].position)
         if striker.isdead:
@@ -28,12 +29,32 @@ def draw(arms, strikers, strikerhits):
             glColor3f(1.0, 1.0, 0.0)
         else:
             glColor3f(0.0, 0.0, 0.5)
-        drawcircle(x, -0.1 if striker.number % 2 == 0 else 0.3, 0.03)
+        top = -0.1 if striker.number % 2 == 0 else 0.3
+        bottom = -0.325 if striker.number % 2 == 0 else 0.075
+        drawcircle(x, top, 0.025)
+        glBegin(GL_QUADS)
+        glColor3f(1.0, 0.9, 0.5)
+        glVertex3f(x + 0.01, top, 0.0)
+        glVertex3f(x - 0.01, top, 0.0)
+        glVertex3f(x - 0.01, bottom, 0.0)
+        glVertex3f(x + 0.01, bottom, 0.0)
+        glColor3f(0.6, 0.6, 0.6)
+        glVertex3f(x + 0.023, bottom, 0.0)
+        glVertex3f(x - 0.023, bottom, 0.0)
+        glVertex3f(x - 0.023, bottom - 0.075, 0.0)
+        glVertex3f(x + 0.023, bottom - 0.075, 0.0)
+        glEnd()
+
+    # Draw arms
     for arm in arms:
         x = positiontox(arm.position)
+        if arm.number % 2 == 1:
+            x -= 0.033
+        else:
+            x += 0.033
         left = x - 0.01
         right = x + 0.01
-        top = 0.3
+        top = 0.125
         bottom = -0.7
 
         if arm.number in crashedarms:
@@ -46,3 +67,17 @@ def draw(arms, strikers, strikerhits):
         glVertex3f(left, bottom, 0.0)
         glVertex3f(right, bottom, 0.0)
         glEnd()
+
+    # Draw rail
+    glBegin(GL_QUADS)
+    glColor3f(0.3, 0.3, 0.3)
+    glVertex3f(0.99, -0.65, 0.0)
+    glVertex3f(-0.99, -0.65, 0.0)
+    glVertex3f(-0.99, -0.75, 0.0)
+    glVertex3f(0.99, -0.75, 0.0)
+    glColor3f(0.1, 0.1, 0.1)
+    glVertex3f(1.0, -0.6, 0.0)
+    glVertex3f(-1.0, -0.6, 0.0)
+    glVertex3f(-1.0, -0.8, 0.0)
+    glVertex3f(1.0, -0.8, 0.0)
+    glEnd()

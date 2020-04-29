@@ -112,6 +112,7 @@ def keyboardFunc(key, x, y):
     global paused
     global arms
     global strikers
+    global stop
 
     # Space to pause
     if key == b' ':
@@ -127,7 +128,6 @@ def keyboardFunc(key, x, y):
             arms[i].direction = initialarms[i].direction
             arms[i].instructionqueue = copy.deepcopy(initialarms[i].instructionqueue)
             arms[i].waittime = initialarms[i].waittime
-            arms[i].hitvel = initialarms[i].hitvel
         for i in range(len(strikers)):
             strikers[i].number = initialstrikers[i].number
             strikers[i].armnumber = initialstrikers[i].armnumber
@@ -141,6 +141,7 @@ def keyboardFunc(key, x, y):
         time = 0
         cycle.notehits.clear()
         cycle.strikerhits.clear()
+        stop = False
 
 def reshapeFunc(width, height):
     global window_width
